@@ -42,6 +42,30 @@ std::shared_ptr<SkFont> create_font(int size) {
   return std::shared_ptr<SkFont>(new SkFont(tf, size));
 }
 
+void draw_text(SkCanvas* canvas, const char* t, bool drop_shadow) {
+  SkPaint paint2;
+  if (g_font == nullptr) {
+    g_font = create_font(28);
+  }
+  
+  //canvas->drawSimpleText(L"안녕하세요.", 2, SkTextEncoding::kUTF16, 150, 500, *g_font, paint2);
+  //canvas->drawString(t, 150, 150, *g_font, paint2);
+  
+  sk_sp<SkTextBlob> text;
+  text = SkTextBlob::MakeFromString(t, *g_font);
+  
+  if (drop_shadow) {
+    auto filter = SkDropShadowImageFilter::Make(1, 1, 2, 2, SK_ColorBLACK, SkDropShadowImageFilter::kDrawShadowOnly_ShadowMode, nullptr);
+    paint2.setImageFilter(filter);
+    paint2.setColor(SK_ColorBLACK);
+    canvas->drawTextBlob(text.get(), 150, 500, paint2);
+  }
+  
+  paint2.setImageFilter(nullptr);
+  paint2.setColor(SK_ColorWHITE);
+  canvas->drawTextBlob(text.get(), 150, 500, paint2);
+}
+
 void draw(SkCanvas* canvas, const char* msg = nullptr) {
   canvas->drawColor(SkColorSetRGB(200, 200, 200));
   
@@ -72,34 +96,10 @@ void draw(SkCanvas* canvas, const char* msg = nullptr) {
   paint.setColor(SK_ColorGREEN);
   canvas->drawPath(path, paint);
   
-  SkPaint paint2;
-  if (g_font == nullptr) {
-    g_font = create_font(28);
-  }
-
-  //canvas->drawSimpleText(L"헬로", 2, SkTextEncoding::kUTF16, 150, 500, *g_font, paint2);
-  //if (msg) canvas->drawString(msg, 150, 150, *g_font, paint2);
-  
-  sk_sp<SkTextBlob> text;
   if (msg) {
-    text = SkTextBlob::MakeFromString(msg, *g_font);
+    draw_text(canvas, msg, true);
   }
-  else {
-    text = SkTextBlob::MakeFromString("Hello, Skia!", *g_font);
-  }
-  
-
-  auto filter = SkDropShadowImageFilter::Make(1, 1, 1, 1, SK_ColorBLACK, SkDropShadowImageFilter::kDrawShadowOnly_ShadowMode, nullptr);
-  paint2.setImageFilter(filter);
-  paint2.setColor(SK_ColorBLACK);
-  canvas->drawTextBlob(text.get(), 150+1, 500+1, paint2);
-  
-  paint2.setImageFilter(nullptr);
-  paint2.setColor(SK_ColorWHITE);
-  canvas->drawTextBlob(text.get(), 150, 500, paint2);
 }
-
-
 
 
 int render_skia_to_texture_test() {
