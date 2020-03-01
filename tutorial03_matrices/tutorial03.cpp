@@ -51,7 +51,7 @@ static void initialize_resources() {
 }
 
 
-void draw_text(const char* t, SkCanvas* canvas, std::shared_ptr<SkFont> font, sk_sp<SkImageFilter> drop_shadow_filter) {
+static void draw_text(const char* t, SkCanvas* canvas, std::shared_ptr<SkFont> font, sk_sp<SkImageFilter> drop_shadow_filter) {
   SkPaint paint;
   paint.setAntiAlias(true);
   
@@ -72,7 +72,7 @@ void draw_text(const char* t, SkCanvas* canvas, std::shared_ptr<SkFont> font, sk
   canvas->drawTextBlob(text.get(), 150, 500, paint);
 }
 
-void draw(SkCanvas* canvas, const char* msg = nullptr) {
+static void draw(SkCanvas* canvas, const char* msg = nullptr) {
   canvas->drawColor(SkColorSetRGB(200, 200, 200));
   
   SkPaint paint;
@@ -106,7 +106,7 @@ void draw(SkCanvas* canvas, const char* msg = nullptr) {
 }
 
 
-int render_skia_to_texture_test() {
+static int render_skia_to_texture_test() {
   int width = 1024;
   int height = 768;
   
@@ -276,7 +276,7 @@ int render_skia_to_texture_test() {
 }
 
 
-int render_skia_test() {
+static int render_skia_test() {
   int width = 1024;
   int height = 768;
   
