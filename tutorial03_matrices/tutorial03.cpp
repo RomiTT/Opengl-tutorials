@@ -8,6 +8,7 @@
 #include "include/core/SkImageFilter.h"
 #include "include/effects/SkDropShadowImageFilter.h"
 #include "include/utils/SkRandom.h"
+#include "include/utils/SkTextUtils.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "src/gpu/gl/GrGLUtil.h"
 #include "src/gpu/gl/GrGLUtil.cpp"
@@ -32,9 +33,11 @@ using namespace glm;
 
 static const int kMsaaSampleCount = 4;
 static const int kStencilBits = 8;
-static std::shared_ptr<SkFont> g_font;
 
-std::shared_ptr<SkFont> create_font(int size) {
+static std::shared_ptr<SkFont> g_font;
+static sk_sp<SkImageFilter> g_drop_shadow_filter;
+
+static std::shared_ptr<SkFont> create_font(int size) {
   sk_sp<SkFontMgr> mgr(SkFontMgr::RefDefault());
   wchar_t test_string[] = { L"한글" };
   sk_sp<SkTypeface> tf(mgr->matchFamilyStyleCharacter(nullptr, SkFontStyle::Bold(), nullptr, 0, test_string[0]));
@@ -42,28 +45,31 @@ std::shared_ptr<SkFont> create_font(int size) {
   return std::shared_ptr<SkFont>(new SkFont(tf, size));
 }
 
-void draw_text(SkCanvas* canvas, const char* t, bool drop_shadow) {
-  SkPaint paint2;
-  if (g_font == nullptr) {
-    g_font = create_font(28);
-  }
+static void initialize_resources() {
+  g_font = create_font(28);
+  g_drop_shadow_filter = SkDropShadowImageFilter::Make(1, 1, 2, 2, SK_ColorBLACK, SkDropShadowImageFilter::kDrawShadowOnly_ShadowMode, nullptr);
+}
+
+
+void draw_text(const char* t, SkCanvas* canvas, std::shared_ptr<SkFont> font, sk_sp<SkImageFilter> drop_shadow_filter) {
+  SkPaint paint;
+  paint.setAntiAlias(true);
   
   //canvas->drawSimpleText(L"안녕하세요.", 2, SkTextEncoding::kUTF16, 150, 500, *g_font, paint2);
   //canvas->drawString(t, 150, 150, *g_font, paint2);
   
   sk_sp<SkTextBlob> text;
-  text = SkTextBlob::MakeFromString(t, *g_font);
+  text = SkTextBlob::MakeFromString(t, *font);
   
-  if (drop_shadow) {
-    auto filter = SkDropShadowImageFilter::Make(1, 1, 2, 2, SK_ColorBLACK, SkDropShadowImageFilter::kDrawShadowOnly_ShadowMode, nullptr);
-    paint2.setImageFilter(filter);
-    paint2.setColor(SK_ColorBLACK);
-    canvas->drawTextBlob(text.get(), 150, 500, paint2);
+  if (drop_shadow_filter) {
+    paint.setImageFilter(drop_shadow_filter);
+    paint.setColor(SK_ColorBLACK);
+    canvas->drawTextBlob(text.get(), 150, 500, paint);
   }
   
-  paint2.setImageFilter(nullptr);
-  paint2.setColor(SK_ColorWHITE);
-  canvas->drawTextBlob(text.get(), 150, 500, paint2);
+  paint.setImageFilter(nullptr);
+  paint.setColor(SK_ColorWHITE);
+  canvas->drawTextBlob(text.get(), 150, 500, paint);
 }
 
 void draw(SkCanvas* canvas, const char* msg = nullptr) {
@@ -96,9 +102,7 @@ void draw(SkCanvas* canvas, const char* msg = nullptr) {
   paint.setColor(SK_ColorGREEN);
   canvas->drawPath(path, paint);
   
-  if (msg) {
-    draw_text(canvas, msg, true);
-  }
+  draw_text(msg, canvas, g_font, g_drop_shadow_filter);
 }
 
 
@@ -128,8 +132,6 @@ int render_skia_to_texture_test() {
                                                        nullptr, //SkColorSpace::MakeSRGB(),
                                                        nullptr);
   auto canvas = surface_tex->getCanvas();
-  draw(canvas);
-  canvas->flush();
   
   glBindTexture(GL_TEXTURE_2D, tex_info.fID);
   int w, h;
@@ -374,6 +376,8 @@ int main( void )
   
   // Ensure we can capture the escape key being pressed below
   glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+  
+  initialize_resources();
   
   return render_skia_to_texture_test();
   //return render_skia_test();
