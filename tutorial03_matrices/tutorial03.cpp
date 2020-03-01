@@ -67,8 +67,6 @@ int render_skia_to_texture_test() {
   int width = 1024;
   int height = 768;
   
-  int fbo1 = 0;
-  int fbo2 = 0;
   // setup GrContext
   auto interface = GrGLMakeNativeInterface();
   
@@ -79,58 +77,27 @@ int render_skia_to_texture_test() {
   SkColorType colorType;
   colorType = kRGBA_8888_SkColorType;
   
-  
-  
-  //  // Wrap the frame buffer object attached to the screen in a Skia render target so Skia can
-  //  // render to it
-  //  GrGLint buffer;
-  //  GR_GL_GetIntegerv(interface.get(), GR_GL_FRAMEBUFFER_BINDING, &buffer);
-  //  GrGLFramebufferInfo info;
-  //  info.fFBOID = (GrGLuint) buffer;
-  //
-  //  info.fFormat = GR_GL_RGBA8;
-  //  colorType = kRGBA_8888_SkColorType;
-  //  GrBackendRenderTarget target(width, height, kMsaaSampleCount, kStencilBits, info);
-  //
-  //  SkSurfaceProps props(SkSurfaceProps::kLegacyFontHost_InitType);
-  //
-  //  sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(grContext.get(), target,
-  //                                                                  kBottomLeft_GrSurfaceOrigin,
-  //                                                                  colorType, nullptr, &props));
-  //  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo1);
-  //  SkCanvas* canvas = surface->getCanvas();
-  //  //canvas->scale(float(width)/1920.f, float(height)/1080.f);
-  
-  
-  
   auto sk_texture = grContext->createBackendTexture(width, height, colorType, GrMipMapped::kNo, GrRenderable::kYes);
   GrGLTextureInfo tex_info;
   sk_texture.getGLTextureInfo(&tex_info);
-  {
-    auto surface_tex = SkSurface::MakeFromBackendTexture(grContext.get(),
-                                                         sk_texture,
-                                                         GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
-                                                         4,
-                                                         colorType,
-                                                         nullptr, //SkColorSpace::MakeSRGB(),
-                                                         nullptr);
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo2);
-    
-    auto c = surface_tex->getCanvas();
-    draw(c);
-    c->flush();
-  }
   
+  auto surface_tex = SkSurface::MakeFromBackendTexture(grContext.get(),
+                                                       sk_texture,
+                                                       GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
+                                                       4,
+                                                       colorType,
+                                                       nullptr, //SkColorSpace::MakeSRGB(),
+                                                       nullptr);
+  auto canvas = surface_tex->getCanvas();
+  draw(canvas);
+  canvas->flush();
+
   glBindTexture(GL_TEXTURE_2D, tex_info.fID);
   int w, h;
   int miplevel = 0;
   glGetTexLevelParameteriv(GL_TEXTURE_2D, miplevel, GL_TEXTURE_WIDTH, &w);
   glGetTexLevelParameteriv(GL_TEXTURE_2D, miplevel, GL_TEXTURE_HEIGHT, &h);
   
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //glEnable(GL_MULTISAMPLE);
-  //glDisable(GL_MULTISAMPLE);
-  glLoadIdentity();
   
   // Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
   //glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 4.0f / 3.0f, 0.1f, 100.0f);
@@ -211,9 +178,16 @@ int render_skia_to_texture_test() {
   glDisableVertexAttribArray(0);
   
   do{
+    grContext->resetContext();
+    draw(canvas);
+    canvas->flush();
+    
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_MULTISAMPLE);
     
     // Clear the screen
-    glClear( GL_COLOR_BUFFER_BIT );
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BITS);
     
     // Use our shader
     glUseProgram(programID);
@@ -243,8 +217,7 @@ int render_skia_to_texture_test() {
     glfwPollEvents();
     
   } // Check if the ESC key was pressed or the window was closed
-  while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS &&
-        glfwWindowShouldClose(window) == 0 );
+  while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS && glfwWindowShouldClose(window) == 0 );
   
   // Cleanup VBO and shader
   glDeleteBuffers(1, &vertexbuffer);
@@ -262,8 +235,7 @@ int render_skia_test() {
   int width = 1024;
   int height = 768;
   
-  int fbo1 = 0;
-  int fbo2 = 0;
+  int fbo = 0;
   // setup GrContext
   auto interface = GrGLMakeNativeInterface();
   
@@ -290,7 +262,8 @@ int render_skia_test() {
   sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(grContext.get(), target,
                                                                   kBottomLeft_GrSurfaceOrigin,
                                                                   colorType, nullptr, &props));
-  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo1);
+  // get the current frame buffer
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
   SkCanvas* canvas = surface->getCanvas();
   //canvas->scale(float(width)/1920.f, float(height)/1080.f);
  
@@ -359,7 +332,7 @@ int main( void )
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
   
-  //return render_skia_to_texture_test();
-  return render_skia_test();
+  return render_skia_to_texture_test();
+  //return render_skia_test();
 }
 
