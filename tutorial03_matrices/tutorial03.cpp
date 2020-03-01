@@ -40,7 +40,9 @@ static sk_sp<SkImageFilter> g_drop_shadow_filter;
 static std::shared_ptr<SkFont> create_font(int size) {
   sk_sp<SkFontMgr> mgr(SkFontMgr::RefDefault());
   wchar_t test_string[] = { L"한글" };
-  sk_sp<SkTypeface> tf(mgr->matchFamilyStyleCharacter(nullptr, SkFontStyle::Bold(), nullptr, 0, test_string[0]));
+  //sk_sp<SkTypeface> tf(mgr->matchFamilyStyleCharacter(nullptr, SkFontStyle::Bold(), nullptr, 0, test_string[0]));
+  
+  auto tf = SkTypeface::MakeFromName("나눔고딕", SkFontStyle::Bold());
   
   return std::shared_ptr<SkFont>(new SkFont(tf, size));
 }
