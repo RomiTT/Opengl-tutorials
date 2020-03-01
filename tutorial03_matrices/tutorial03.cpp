@@ -1,3 +1,13 @@
+#include "include/gpu/GrBackendSurface.h"
+#include "include/gpu/GrContext.h"
+#include "include/core/SkCanvas.h"
+#include "include/core/SkFont.h"
+#include "include/core/SkSurface.h"
+#include "include/utils/SkRandom.h"
+#include "include/gpu/gl/GrGLInterface.h"
+#include "src/gpu/gl/GrGLUtil.h"
+#include "src/gpu/gl/GrGLUtil.cpp"
+
 // Include standard headers
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +26,40 @@ using namespace glm;
 
 #include <common/shader.hpp>
 
+
+void draw(SkCanvas* canvas) {
+  canvas->drawColor(SkColorSetRGB(200, 200, 200));
+  
+  SkPaint paint;
+  paint.setAntiAlias(true);
+  paint.setStyle(SkPaint::kStroke_Style);
+  paint.setStrokeWidth(4);
+  paint.setColor(SK_ColorRED);
+  
+  SkRect rect = SkRect::MakeXYWH(150, 150, 140, 160);
+  canvas->drawRect(rect, paint);
+  
+  SkRRect oval;
+  oval.setOval(rect);
+  oval.offset(140, 160);
+  paint.setColor(SK_ColorBLUE);
+  canvas->drawRRect(oval, paint);
+  
+  paint.setColor(SK_ColorCYAN);
+  canvas->drawCircle(280, 150, 125, paint);
+  
+  rect.offset(180, 0);
+  paint.setColor(SK_ColorYELLOW);
+  canvas->drawRoundRect(rect, 10, 10, paint);
+  
+  SkPath path;
+  path.cubicTo(768, 100, -512, 256, 256, 256);
+  paint.setColor(SK_ColorGREEN);
+  canvas->drawPath(path, paint);
+}
+
+
+
 int main( void )
 {
 	// Initialise GLFW
@@ -32,8 +76,17 @@ int main( void )
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL 
 
+  static const int kMsaaSampleCount = 4;
+  static const int kStencilBits = 8;
+  
+  glfwWindowHint(GLFW_SAMPLES, kMsaaSampleCount);
+  glfwWindowHint(GLFW_STENCIL_BITS, kStencilBits);
+  
+  int width = 1024;
+  int height = 768;
+  
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow( 1024, 768, "Tutorial 03 - Matrices", NULL, NULL);
+	window = glfwCreateWindow( width, height, "Tutorial 03 - Matrices", NULL, NULL);
 	if( window == NULL ){
 		fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
 		getchar();
@@ -53,10 +106,74 @@ int main( void )
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+  
+//  glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+//  glPushAttrib(GL_ALL_ATTRIB_BITS);
+  
+  
+  int fbo1 = 0;
+  int fbo2 = 0;
+  // setup GrContext
+  auto interface = GrGLMakeNativeInterface();
+  
+  // setup contexts
+  sk_sp<GrContext> grContext(GrContext::MakeGL(interface));
+  SkASSERT(grContext);
 
-	// Dark blue background
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+  SkColorType colorType;
+  colorType = kRGBA_8888_SkColorType;
+  
+  // Wrap the frame buffer object attached to the screen in a Skia render target so Skia can
+  // render to it
+  GrGLint buffer;
+  GR_GL_GetIntegerv(interface.get(), GR_GL_FRAMEBUFFER_BINDING, &buffer);
+  GrGLFramebufferInfo info;
+  info.fFBOID = (GrGLuint) buffer;
+  
+  info.fFormat = GR_GL_RGBA8;
+  colorType = kRGBA_8888_SkColorType;
+  GrBackendRenderTarget target(width, height, kMsaaSampleCount, kStencilBits, info);
+  
+  SkSurfaceProps props(SkSurfaceProps::kLegacyFontHost_InitType);
+  
+  sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(grContext.get(), target,
+                                                                  kBottomLeft_GrSurfaceOrigin,
+                                                                  colorType, nullptr, &props));
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo1);
+  SkCanvas* canvas = surface->getCanvas();
+  //canvas->scale(float(width)/1920.f, float(height)/1080.f);
+  
+  
 
+//  auto sk_texture = grContext->createBackendTexture(800, 600, colorType, GrMipMapped::kNo, GrRenderable::kYes);
+//  GrGLTextureInfo tex_info;
+//  sk_texture.getGLTextureInfo(&tex_info);
+//
+//
+//  auto surface_tex = SkSurface::MakeFromBackendTexture(grContext.get(),
+//                                                       sk_texture,
+//                                                       GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
+//                                                       4,
+//                                                       colorType,
+//                                                       nullptr, //SkColorSpace::MakeSRGB(),
+//                                                       nullptr);
+//  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo2);
+//
+//  auto c = surface_tex->getCanvas();
+//  draw(c);
+//  c->flush();
+  
+  
+
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  //glEnable(GL_MULTISAMPLE);
+  glDisable(GL_MULTISAMPLE);
+  glLoadIdentity();
+  
+  // Dark blue background
+  glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+  
 	GLuint VertexArrayID;
 	glGenVertexArrays(1, &VertexArrayID);
 	glBindVertexArray(VertexArrayID);
@@ -73,15 +190,15 @@ int main( void )
 	//glm::mat4 Projection = glm::ortho(-10.0f,10.0f,-10.0f,10.0f,0.0f,100.0f); // In world coordinates
 	
 	// Camera matrix
-	glm::mat4 View       = glm::lookAt(
-								glm::vec3(4,3,3), // Camera is at (4,3,3), in World Space
-								glm::vec3(0,0,0), // and looks at the origin
-								glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
-						   );
+	glm::mat4 View = glm::lookAt(
+                               glm::vec3(0,0,3), // Camera is at (4,3,3), in World Space
+                               glm::vec3(0,0,0), // and looks at the origin
+                               glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
+                               );
 	// Model matrix : an identity matrix (model will be at the origin)
-	glm::mat4 Model      = glm::mat4(1.0f);
+	glm::mat4 Model = glm::mat4(1.0f);
 	// Our ModelViewProjection : multiplication of our 3 matrices
-	glm::mat4 MVP        = Projection * View * Model; // Remember, matrix multiplication is the other way around
+	glm::mat4 MVP = Projection * View * Model; // Remember, matrix multiplication is the other way around
 
 	static const GLfloat g_vertex_buffer_data[] = { 
 		-1.0f, -1.0f, 0.0f,
