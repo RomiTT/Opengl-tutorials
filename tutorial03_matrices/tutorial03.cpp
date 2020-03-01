@@ -3,6 +3,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkFont.h"
 #include "include/core/SkSurface.h"
+#include "include/core/SkTextBlob.h"
 #include "include/utils/SkRandom.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "src/gpu/gl/GrGLUtil.h"
@@ -29,7 +30,7 @@ using namespace glm;
 static const int kMsaaSampleCount = 4;
 static const int kStencilBits = 8;
 
-void draw(SkCanvas* canvas) {
+void draw(SkCanvas* canvas, const char* msg = nullptr) {
   canvas->drawColor(SkColorSetRGB(200, 200, 200));
   
   SkPaint paint;
@@ -58,6 +59,17 @@ void draw(SkCanvas* canvas) {
   path.cubicTo(768, 100, -512, 256, 256, 256);
   paint.setColor(SK_ColorGREEN);
   canvas->drawPath(path, paint);
+  
+  SkPaint paint2;
+  sk_sp<SkTextBlob> text;
+  if (msg) {
+    text = SkTextBlob::MakeFromString(msg, SkFont(nullptr, 18));
+  }
+  else {
+    text = SkTextBlob::MakeFromString("Hello, Skia!", SkFont(nullptr, 18));
+  }
+  
+  canvas->drawTextBlob(text.get(), 150, 500, paint2);
 }
 
 
@@ -177,9 +189,13 @@ int render_skia_to_texture_test() {
   glBindVertexArray(0);
   glDisableVertexAttribArray(0);
   
+  int count = 0;
+  char msg[512] = {0};
+  
   do{
+    sprintf(msg, "Hello, Skia! [%d]", count++);
     grContext->resetContext();
-    draw(canvas);
+    draw(canvas, msg);
     canvas->flush();
     
     
