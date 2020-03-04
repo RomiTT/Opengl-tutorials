@@ -10,8 +10,6 @@
 #include "include/utils/SkRandom.h"
 #include "include/utils/SkTextUtils.h"
 #include "include/gpu/gl/GrGLInterface.h"
-#include "src/gpu/gl/GrGLUtil.h"
-#include "src/gpu/gl/GrGLUtil.cpp"
 
 // Include standard headers
 #include <stdio.h>
@@ -112,11 +110,10 @@ static int render_skia_to_texture_test() {
   int width = 1024;
   int height = 768;
   
-  // setup GrContext
-  auto interface = GrGLMakeNativeInterface();
-  
-  // setup contexts
-  sk_sp<GrContext> grContext(GrContext::MakeGL(interface));
+  // setup GrContext  
+  GrContextOptions options;
+  //options.fRequireDecodeDisableForSRGB = false; //was removed?
+  sk_sp<GrContext> grContext(GrContext::MakeGL(nullptr, options).release());
   SkASSERT(grContext);
   
   SkColorType colorType;
@@ -281,37 +278,33 @@ static int render_skia_to_texture_test() {
 static int render_skia_test() {
   int width = 1024;
   int height = 768;
+
+  GrContext* sContext = nullptr;
+  SkSurface* sSurface = nullptr;
   
-  int fbo = 0;
-  // setup GrContext
-  auto interface = GrGLMakeNativeInterface();
+  GrContextOptions options;
+  //options.fRequireDecodeDisableForSRGB = false; //was removed?
+  sContext = GrContext::MakeGL(nullptr, options).release();
   
-  // setup contexts
-  sk_sp<GrContext> grContext(GrContext::MakeGL(interface));
-  SkASSERT(grContext);
+  GrGLFramebufferInfo framebufferInfo;
+  framebufferInfo.fFBOID = 0; // assume default framebuffer
+  // We are always using OpenGL and we use RGBA8 internal format for both RGBA and BGRA configs in OpenGL.
+  //(replace line below with this one to enable correct color spaces) framebufferInfo.fFormat = GL_SRGB8_ALPHA8;
+  framebufferInfo.fFormat = GL_RGBA8;
   
   SkColorType colorType;
   colorType = kRGBA_8888_SkColorType;
+
+  GrBackendRenderTarget backendRenderTarget(width, height,
+                                            0, // sample count
+                                            0, // stencil bits
+                                            framebufferInfo);
   
-  // Wrap the frame buffer object attached to the screen in a Skia render target so Skia can
-  // render to it
-  GrGLint buffer;
-  GR_GL_GetIntegerv(interface.get(), GR_GL_FRAMEBUFFER_BINDING, &buffer);
-  GrGLFramebufferInfo info;
-  info.fFBOID = (GrGLuint) buffer;
-  
-  info.fFormat = GR_GL_RGBA8;
-  colorType = kRGBA_8888_SkColorType;
-  GrBackendRenderTarget target(width, height, kMsaaSampleCount, kStencilBits, info);
-  
-  SkSurfaceProps props(SkSurfaceProps::kLegacyFontHost_InitType);
-  
-  sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(grContext.get(), target,
-                                                                  kBottomLeft_GrSurfaceOrigin,
-                                                                  colorType, nullptr, &props));
-  // get the current frame buffer
-  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
-  SkCanvas* canvas = surface->getCanvas();
+  //(replace line below with this one to enable correct color spaces) sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, SkColorSpace::MakeSRGB(), nullptr).release();
+  sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, nullptr, nullptr).release();
+  if (sSurface == nullptr) abort();
+
+  SkCanvas* canvas = sSurface->getCanvas();
   //canvas->scale(float(width)/1920.f, float(height)/1080.f);
   
   do{
@@ -351,6 +344,7 @@ int main( void )
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
   
+  glfwWindowHint(GLFW_DEPTH_BITS, 0);
   glfwWindowHint(GLFW_SAMPLES, kMsaaSampleCount);
   glfwWindowHint(GLFW_STENCIL_BITS, kStencilBits);
   
