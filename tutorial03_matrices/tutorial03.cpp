@@ -110,10 +110,10 @@ static int render_skia_to_texture_test() {
   int width = 1024;
   int height = 768;
   
-  // setup GrContext  
+  // setup GrContext
   GrContextOptions options;
   //options.fRequireDecodeDisableForSRGB = false; //was removed?
-  sk_sp<GrContext> grContext(GrContext::MakeGL(nullptr, options).release());
+  sk_sp<GrContext> grContext = GrContext::MakeGL(nullptr, options);
   SkASSERT(grContext);
   
   SkColorType colorType;
